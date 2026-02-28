@@ -15,30 +15,28 @@ interface VoiceResponse {
   response_jp: string;
   audio_base64: string;
   interview_complete: boolean;
+  time_remaining_seconds?: number;
+  question_number?: number;
 }
 
 // ─── MOCK DATA ────────────────────────────────────────────────────
 const MOCK_EXCHANGES = [
-  {
-    en: "Please introduce yourself.",
-    jp: "自己紹介をお願いします。",
-  },
-  {
-    en: "Why did you choose this company specifically?",
-    jp: "なぜ弊社を志望されたのですか？",
-  },
-  {
-    en: "What are your strengths and how will you contribute to the team?",
-    jp: "あなたの強みは何ですか？チームにどのように貢献できますか？",
-  },
-  {
-    en: "Thank you for your time. We will be in touch.",
-    jp: "本日はお時間をいただきありがとうございました。後日ご連絡いたします。",
-  },
+  { en: "Please introduce yourself.", jp: "自己紹介をお願いします。" },
+  { en: "Why did you choose this company specifically?", jp: "なぜ弊社を志望されたのですか？" },
+  { en: "What are your strengths and how will you contribute to the team?", jp: "あなたの強みは何ですか？チームにどのように貢献できますか？" },
+  { en: "Tell me about a time you worked closely with a team to solve a problem.", jp: "チームで問題を解決した経験について教えてください。" },
+  { en: "How do you handle situations where you disagree with a group decision?", jp: "グループの決定に同意できない場合、どう対応しますか？" },
+  { en: "What does continuous improvement mean to you?", jp: "あなたにとって「改善」とは何ですか？" },
+  { en: "Why do you want to work in Japan specifically?", jp: "なぜ日本で働きたいのですか？" },
+  { en: "How long do you plan to stay with this company?", jp: "弊社にどのくらい在籍する予定ですか？" },
+  { en: "What would your previous colleagues say about you?", jp: "以前の同僚はあなたのことをどう言うと思いますか？" },
+  { en: "What would you do if your manager asked you to do something you thought was wrong?", jp: "上司から間違っていると思うことを頼まれたらどうしますか？" },
+  { en: "Thank you for your time. We will be in touch.", jp: "本日はお時間をいただきありがとうございました。後日ご連絡いたします。" },
 ];
 
 // ─── HELPERS ──────────────────────────────────────────────────────
-function formatTime(seconds: number) {
+function formatCountdown(seconds: number) {
+  if (seconds <= 0) return "00:00";
   const m = Math.floor(seconds / 60).toString().padStart(2, "0");
   const s = (seconds % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
@@ -57,15 +55,7 @@ function playAudioFromBase64(base64: string): Promise<void> {
 function Waveform({ active }: { active: boolean }) {
   const bars = 28;
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "3px",
-        height: "48px",
-      }}
-    >
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "3px", height: "48px" }}>
       {Array.from({ length: bars }).map((_, i) => {
         const baseHeight = 4;
         const maxExtra = 36;
@@ -75,16 +65,11 @@ function Waveform({ active }: { active: boolean }) {
           <div
             key={i}
             style={{
-              width: "3px",
-              borderRadius: "2px",
+              width: "3px", borderRadius: "2px",
               backgroundColor: active ? "#2E75C8" : "#1E2A3A",
               height: active ? `${naturalHeight}px` : "4px",
-              transition: active
-                ? `height ${0.3 + (i % 5) * 0.08}s ease ${(i % 7) * 0.04}s`
-                : "height 0.4s ease",
-              animation: active
-                ? `wave-${i % 5} ${0.8 + (i % 4) * 0.2}s ease-in-out infinite alternate`
-                : "none",
+              transition: active ? `height ${0.3 + (i % 5) * 0.08}s ease ${(i % 7) * 0.04}s` : "height 0.4s ease",
+              animation: active ? `wave-${i % 5} ${0.8 + (i % 4) * 0.2}s ease-in-out infinite alternate` : "none",
             }}
           />
         );
@@ -101,68 +86,27 @@ function Waveform({ active }: { active: boolean }) {
 }
 
 // ─── BILINGUAL SUBTITLE ───────────────────────────────────────────
-function BilingualLine({
-  en,
-  jp,
-  visible,
-  isUser,
-}: {
-  en: string;
-  jp?: string;
-  visible: boolean;
-  isUser?: boolean;
-}) {
+function BilingualLine({ en, jp, visible }: { en: string; jp?: string; visible: boolean }) {
   return (
-    <div
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(10px)",
-        transition: "opacity 0.4s ease, transform 0.4s ease",
-        textAlign: "center",
-        maxWidth: "620px",
-        margin: "0 auto",
-      }}
-    >
-      <p
-        style={{
-          color: isUser ? "rgba(226,232,240,0.55)" : "#E2E8F0",
-          fontSize: isUser ? "15px" : "18px",
-          fontWeight: isUser ? 400 : 500,
-          lineHeight: 1.6,
-          marginBottom: jp ? "8px" : "0",
-          fontStyle: isUser ? "italic" : "normal",
-        }}
-      >
-        {isUser ? `"${en}"` : en}
-      </p>
-      {jp && !isUser && (
-        <p
-          style={{
-            color: "#2E75C8",
-            fontSize: "14px",
-            lineHeight: 1.5,
-            letterSpacing: "0.02em",
-          }}
-        >
-          {jp}
-        </p>
-      )}
+    <div style={{
+      opacity: visible ? 1 : 0,
+      transform: visible ? "translateY(0)" : "translateY(10px)",
+      transition: "opacity 0.4s ease, transform 0.4s ease",
+      textAlign: "center", maxWidth: "620px", margin: "0 auto",
+    }}>
+      <p style={{ color: "#E2E8F0", fontSize: "18px", fontWeight: 500, lineHeight: 1.6, marginBottom: jp ? "8px" : "0" }}>{en}</p>
+      {jp && <p style={{ color: "#2E75C8", fontSize: "14px", lineHeight: 1.5, letterSpacing: "0.02em" }}>{jp}</p>}
     </div>
   );
 }
 
-// ─── CONVERSATION LOG ─────────────────────────────────────────────
-interface Message {
-  role: "ai" | "user";
-  en: string;
-  jp?: string;
-}
+// ─── MESSAGE TYPE ─────────────────────────────────────────────────
+interface Message { role: "ai" | "user"; en: string; jp?: string; }
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────
 export default function InterviewPage() {
   const router = useRouter();
   const [status, setStatus] = useState<InterviewStatus>("idle");
-  const [elapsed, setElapsed] = useState(0);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentAiEn, setCurrentAiEn] = useState("");
   const [currentAiJp, setCurrentAiJp] = useState("");
@@ -170,12 +114,15 @@ export default function InterviewPage() {
   const [questionCount, setQuestionCount] = useState(0);
   const [started, setStarted] = useState(false);
 
+  // Timer state
+  const [sessionDuration, setSessionDuration] = useState(15); // minutes
+  const [timeRemaining, setTimeRemaining] = useState(15 * 60); // seconds
+  const [timerStarted, setTimerStarted] = useState(false);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const sessionId = useRef<string | null>(null);
-  const languageMode = useRef<string>("english_formal");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mockIndex = useRef(0);
 
@@ -183,18 +130,30 @@ export default function InterviewPage() {
   useEffect(() => {
     sessionId.current = sessionStorage.getItem("saiko_session_id");
     const c = sessionStorage.getItem("saiko_company");
-    const lm = sessionStorage.getItem("saiko_language_mode");
+    const dur = sessionStorage.getItem("saiko_session_duration");
     if (c) setCompany(c.charAt(0).toUpperCase() + c.slice(1));
-    if (lm) languageMode.current = lm;
+    if (dur) {
+      const mins = parseInt(dur, 10);
+      setSessionDuration(mins);
+      setTimeRemaining(mins * 60);
+    }
   }, []);
 
-  // ── Timer ─────────────────────────────────────────────────────
+  // ── Countdown timer ───────────────────────────────────────────
   useEffect(() => {
-    if (started && status !== "complete") {
-      timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
+    if (timerStarted && status !== "complete") {
+      timerRef.current = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev <= 1) {
+            if (timerRef.current) clearInterval(timerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [started, status]);
+  }, [timerStarted, status]);
 
   // ── Auto scroll ───────────────────────────────────────────────
   useEffect(() => {
@@ -210,7 +169,6 @@ export default function InterviewPage() {
     if (audioBase64) {
       await playAudioFromBase64(audioBase64);
     } else {
-      // Simulate speaking duration based on text length
       await new Promise((r) => setTimeout(r, Math.max(1500, en.length * 45)));
     }
 
@@ -231,13 +189,14 @@ export default function InterviewPage() {
   // ── Start interview ───────────────────────────────────────────
   const startInterview = useCallback(async () => {
     setStarted(true);
+    setTimerStarted(true);
     const first = MOCK_EXCHANGES[0];
+    setQuestionCount(1);
     await aiSpeak(first.en, first.jp);
   }, [aiSpeak]);
 
-  // ── Silence detection ─────────────────────────────────────────
+  // ── Stop listening and send ───────────────────────────────────
   const stopListeningAndSend = useCallback(async () => {
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     const mediaRecorder = mediaRecorderRef.current;
     if (!mediaRecorder || mediaRecorder.state !== "recording") return;
 
@@ -252,50 +211,50 @@ export default function InterviewPage() {
       reader.onloadend = async () => {
         const base64 = (reader.result as string).split(",")[1];
 
-        // Add user message to log
-        setMessages((prev) => [...prev, {
-          role: "user",
-          en: "Your answer was received.",
-        }]);
+        setMessages((prev) => [...prev, { role: "user", en: "Your answer was received." }]);
 
         try {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
           const res = await fetch(`${apiUrl}/api/voice`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              session_id: sessionId.current,
-              audio_base64: base64,
-            }),
+            body: JSON.stringify({ session_id: sessionId.current, audio_base64: base64 }),
           });
 
           if (!res.ok) throw new Error("API failed");
           const data: VoiceResponse = await res.json();
-          const newCount = questionCount + 1;
-          setQuestionCount(newCount);
-          await aiSpeak(
-            data.response_text,
-            data.response_jp,
-            data.audio_base64,
-            data.interview_complete
-          );
+
+          // Update timer from backend (source of truth)
+          if (data.time_remaining_seconds !== undefined) {
+            setTimeRemaining(data.time_remaining_seconds);
+          }
+          if (data.question_number !== undefined) {
+            setQuestionCount(data.question_number);
+          } else {
+            setQuestionCount((prev) => prev + 1);
+          }
+
+          await aiSpeak(data.response_text, data.response_jp, data.audio_base64, data.interview_complete);
         } catch {
-          // Mock fallback
+          // Mock fallback — simulate time-based ending
           const newCount = questionCount + 1;
           setQuestionCount(newCount);
-          mockIndex.current = Math.min(newCount, MOCK_EXCHANGES.length - 1);
-          const next = MOCK_EXCHANGES[mockIndex.current];
-          const isLast = newCount >= 3;
+          mockIndex.current = Math.min(newCount, MOCK_EXCHANGES.length - 2);
+
+          const isTimeUp = timeRemaining <= 30;
+          const closingExchange = MOCK_EXCHANGES[MOCK_EXCHANGES.length - 1];
+          const nextExchange = MOCK_EXCHANGES[mockIndex.current];
+
           await aiSpeak(
-            isLast ? MOCK_EXCHANGES[3].en : next.en,
-            isLast ? MOCK_EXCHANGES[3].jp : next.jp,
+            isTimeUp ? closingExchange.en : nextExchange.en,
+            isTimeUp ? closingExchange.jp : nextExchange.jp,
             undefined,
-            isLast
+            isTimeUp,
           );
         }
       };
     };
-  }, [questionCount, aiSpeak]);
+  }, [questionCount, timeRemaining, aiSpeak]);
 
   // ── Start listening ───────────────────────────────────────────
   const startListening = useCallback(async () => {
@@ -305,7 +264,6 @@ export default function InterviewPage() {
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
-      // Silence detection via AudioContext
       const audioCtx = new AudioContext();
       const source = audioCtx.createMediaStreamSource(stream);
       const analyser = audioCtx.createAnalyser();
@@ -315,9 +273,9 @@ export default function InterviewPage() {
 
       let silenceStart: number | null = null;
       const SILENCE_THRESHOLD = 12;
-      const SILENCE_DURATION = 2200; // 2.2s silence = done speaking
-      const MIN_SPEAK_TIME = 1500; // must speak for at least 1.5s
-      let speakStart = Date.now();
+      const SILENCE_DURATION = 2200;
+      const MIN_SPEAK_TIME = 1500;
+      const speakStart = Date.now();
 
       const checkSilence = () => {
         if (mediaRecorder.state !== "recording") return;
@@ -344,7 +302,6 @@ export default function InterviewPage() {
       };
 
       mediaRecorder.start(100);
-      speakStart = Date.now();
       requestAnimationFrame(checkSilence);
       setStatus("listening");
     } catch {
@@ -364,6 +321,7 @@ export default function InterviewPage() {
   };
 
   const { text: statusText, color: statusColor } = statusLabel();
+  const timerIsLow = timeRemaining <= 60 && timerStarted;
 
   // ─── RENDER ───────────────────────────────────────────────────
   return (
@@ -374,17 +332,34 @@ export default function InterviewPage() {
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "16px 28px", borderBottom: "1px solid #1E2A3A",
       }}>
+        {/* Left: company + question count */}
         <div>
           <p style={{ color: "#E84855", fontSize: "11px", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase" }}>
             {company}
           </p>
           <p style={{ color: "rgba(226,232,240,0.30)", fontSize: "11px", marginTop: "2px" }}>
-            Question {Math.min(questionCount + 1, 3)} of 3
+            Question {questionCount}
           </p>
         </div>
-        <p style={{ color: "rgba(226,232,240,0.30)", fontSize: "13px", fontFamily: "monospace", letterSpacing: "0.1em" }}>
-          {formatTime(elapsed)}
-        </p>
+
+        {/* Center: countdown timer */}
+        <div style={{ textAlign: "center" }}>
+          <p style={{
+            color: status === "complete" ? "rgba(226,232,240,0.30)" : timerIsLow ? "#E84855" : "rgba(226,232,240,0.50)",
+            fontSize: "24px",
+            fontFamily: "monospace",
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            transition: "color 0.3s ease",
+          }}>
+            {status === "complete" ? "Complete" : formatCountdown(timeRemaining)}
+          </p>
+          <p style={{ color: "rgba(226,232,240,0.20)", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+            {status === "complete" ? "" : timerIsLow ? "finishing up" : "remaining"}
+          </p>
+        </div>
+
+        {/* Right: end button */}
         <button
           onClick={() => router.push("/debrief")}
           style={{
@@ -415,23 +390,13 @@ export default function InterviewPage() {
                   <p style={{ color: "rgba(226,232,240,0.30)", fontSize: "10px", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "8px" }}>
                     INTERVIEWER
                   </p>
-                  <p style={{ color: "#E2E8F0", fontSize: "17px", lineHeight: 1.6, marginBottom: "6px" }}>
-                    {msg.en}
-                  </p>
-                  {msg.jp && (
-                    <p style={{ color: "#2E75C8", fontSize: "13px", lineHeight: 1.5 }}>
-                      {msg.jp}
-                    </p>
-                  )}
+                  <p style={{ color: "#E2E8F0", fontSize: "17px", lineHeight: 1.6, marginBottom: "6px" }}>{msg.en}</p>
+                  {msg.jp && <p style={{ color: "#2E75C8", fontSize: "13px", lineHeight: 1.5 }}>{msg.jp}</p>}
                 </div>
               ) : (
                 <div style={{ textAlign: "center", maxWidth: "520px", margin: "0 auto" }}>
-                  <p style={{ color: "rgba(226,232,240,0.20)", fontSize: "10px", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "6px" }}>
-                    YOU
-                  </p>
-                  <p style={{ color: "rgba(226,232,240,0.40)", fontSize: "15px", fontStyle: "italic", lineHeight: 1.6 }}>
-                    Answer received
-                  </p>
+                  <p style={{ color: "rgba(226,232,240,0.20)", fontSize: "10px", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "6px" }}>YOU</p>
+                  <p style={{ color: "rgba(226,232,240,0.40)", fontSize: "15px", fontStyle: "italic", lineHeight: 1.6 }}>Answer received</p>
                 </div>
               )}
             </div>
@@ -439,31 +404,20 @@ export default function InterviewPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* ── Live AI line (currently speaking) ─────────────────── */}
+        {/* ── Live area ─────────────────────────────────────────── */}
         <div style={{
           borderTop: "1px solid #1E2A3A",
           padding: "28px 24px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "20px",
-          minHeight: "180px",
-          justifyContent: "center",
+          display: "flex", flexDirection: "column", alignItems: "center",
+          gap: "20px", minHeight: "180px", justifyContent: "center",
         }}>
 
-          {/* Waveform */}
           <Waveform active={status === "speaking" || status === "listening"} />
 
-          {/* Live subtitle */}
           {(currentAiEn || status === "listening") && (
-            <BilingualLine
-              en={currentAiEn || ""}
-              jp={currentAiJp}
-              visible={!!currentAiEn}
-            />
+            <BilingualLine en={currentAiEn || ""} jp={currentAiJp} visible={!!currentAiEn} />
           )}
 
-          {/* Processing dots */}
           {status === "processing" && (
             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
               {[0, 1, 2].map((i) => (
@@ -476,33 +430,21 @@ export default function InterviewPage() {
             </div>
           )}
 
-          {/* Status label */}
           <p style={{
-            color: statusColor,
-            fontSize: "11px",
-            fontWeight: 600,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
+            color: statusColor, fontSize: "11px", fontWeight: 600,
+            letterSpacing: "0.18em", textTransform: "uppercase",
             transition: "color 0.3s ease",
           }}>
             {statusText}
           </p>
 
-          {/* Start button — only shown before interview begins */}
           {!started && status === "idle" && (
             <button
               onClick={startInterview}
               style={{
-                padding: "14px 48px",
-                backgroundColor: "#E84855",
-                color: "#fff",
-                border: "none",
-                borderRadius: "6px",
-                fontSize: "15px",
-                fontWeight: 700,
-                cursor: "pointer",
-                letterSpacing: "0.05em",
-                transition: "background-color 0.2s ease",
+                padding: "14px 48px", backgroundColor: "#E84855", color: "#fff",
+                border: "none", borderRadius: "6px", fontSize: "15px", fontWeight: 700,
+                cursor: "pointer", letterSpacing: "0.05em", transition: "background-color 0.2s ease",
               }}
               onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.backgroundColor = "#d03a45"; }}
               onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.backgroundColor = "#E84855"; }}
@@ -511,7 +453,6 @@ export default function InterviewPage() {
             </button>
           )}
 
-          {/* Listening indicator pulse */}
           {status === "listening" && (
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <div style={{
