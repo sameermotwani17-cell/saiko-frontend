@@ -47,9 +47,9 @@ function formatTime(seconds: number) {
 function playAudioFromBase64(base64: string): Promise<void> {
   return new Promise((resolve) => {
     const audio = new Audio(`data:audio/mp3;base64,${base64}`);
-    audio.onended = resolve;
-    audio.onerror = resolve;
-    audio.play().catch(resolve);
+    audio.onended = () => resolve();
+    audio.onerror = () => resolve();
+    audio.play().catch(() => resolve());
   });
 }
 
