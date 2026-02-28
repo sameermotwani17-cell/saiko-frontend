@@ -31,6 +31,13 @@ interface LanguageMode {
   description: string;
 }
 
+interface SessionDuration {
+  minutes: number;
+  label: string;
+  sublabel: string;
+  description: string;
+}
+
 // ─── DATA ─────────────────────────────────────────────────────────
 const COMPANIES: Company[] = [
   { id: "rakuten", name: "Rakuten", kanji: "楽天", personality: "Global-hybrid. English welcomed.", note: "Must align with CEO Mikitani's principles" },
@@ -77,6 +84,16 @@ const LANGUAGE_MODES: LanguageMode[] = [
     flag: "🌐",
     description: "Full English interview with formal Japanese HR scoring standards applied. No Japanese text shown.",
   },
+];
+
+const SESSION_DURATIONS: SessionDuration[] = [
+  { minutes: 5, label: "5 min", sublabel: "Quick", description: "~3–4 questions. Demo or quick warm-up." },
+  { minutes: 10, label: "10 min", sublabel: "Standard", description: "~5–7 questions. Good first practice." },
+  { minutes: 15, label: "15 min", sublabel: "Extended", description: "~8–10 questions. Recommended for most users." },
+  { minutes: 20, label: "20 min", sublabel: "Deep", description: "~11–14 questions. Thorough practice session." },
+  { minutes: 30, label: "30 min", sublabel: "Thorough", description: "~16–20 questions. Full category rotation." },
+  { minutes: 45, label: "45 min", sublabel: "Full Sim", description: "~24–30 questions. Near-complete coverage." },
+  { minutes: 60, label: "60 min", sublabel: "Marathon", description: "~32–40 questions. Full question bank." },
 ];
 
 // ─── STEP WRAPPER ─────────────────────────────────────────────────
@@ -160,9 +177,9 @@ export default function OnboardPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
-  const TOTAL_STEPS = 4;
+  const TOTAL_STEPS = 5;
 
-  // Step 1
+  // Step 1 — CV
   const [file, setFile] = useState<File | null>(null);
   const [cvData, setCvData] = useState<CVData | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -170,14 +187,17 @@ export default function OnboardPage() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Step 2
+  // Step 2 — Company
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
 
-  // Step 3
+  // Step 3 — Role language
   const [roleRequiresJapanese, setRoleRequiresJapanese] = useState<boolean | null>(null);
 
-  // Step 4
+  // Step 4 — Language mode
   const [selectedLanguageMode, setSelectedLanguageMode] = useState<string | null>(null);
+
+  // Step 5 — Duration
+  const [selectedDuration, setSelectedDuration] = useState<number>(15);
 
   // ── Transition ────────────────────────────────────────────────
   const goToStep = (next: number) => {
@@ -220,28 +240,34 @@ export default function OnboardPage() {
 
   // ── Final start ───────────────────────────────────────────────
   const handleStart = async () => {
-    if (!cvData || !selectedCompany || !selectedLanguageMode) return;
+    if (!cvData || !selectedCompany || !selectedLanguageMode || !selectedDuration) return;
     const mode = LANGUAGE_MODES.find((m) => m.id === selectedLanguageMode)!;
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/session/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company: selectedCompany, cv_data: cvData, language_mode: selectedLanguageMode }),
+        body: JSON.stringify({
+          company: selectedCompany,
+          cv_data: cvData,
+          language_mode: selectedLanguageMode,
+          session_duration_minutes: selectedDuration,
+        }),
       });
       if (res.ok) {
         const { session_id } = await res.json();
         sessionStorage.setItem("saiko_session_id", session_id);
       }
-    } catch { /* continue */ }
+    } catch { /* continue with mock */ }
     sessionStorage.setItem("saiko_company", selectedCompany);
     sessionStorage.setItem("saiko_language_mode", selectedLanguageMode);
     sessionStorage.setItem("saiko_interview_lang", mode.interview_lang);
     sessionStorage.setItem("saiko_subtitle_lang", mode.subtitle_lang);
     sessionStorage.setItem("saiko_cv_data", JSON.stringify(cvData));
+    sessionStorage.setItem("saiko_session_duration", String(selectedDuration));
     router.push("/interview");
   };
 
-  // ── Filtered language modes based on role requirement ─────────
+  // ── Filtered language modes ───────────────────────────────────
   const filteredModes = roleRequiresJapanese === true
     ? LANGUAGE_MODES.filter((m) => m.interview_lang === "japanese")
     : roleRequiresJapanese === false
@@ -260,7 +286,7 @@ export default function OnboardPage() {
       {/* ── STEP 1 — CV Upload ──────────────────────────────────── */}
       <StepWrapper visible={step === 0 && !transitioning}>
         <div className="max-w-lg w-full text-center">
-          <p style={{ color: "#E84855", fontSize: "11px", fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: "16px" }}>Step 1 of 4</p>
+          <p style={{ color: "#E84855", fontSize: "11px", fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: "16px" }}>Step 1 of {TOTAL_STEPS}</p>
           <h2 style={{ color: "#E2E8F0", fontSize: "36px", fontWeight: 700, marginBottom: "8px" }}>Upload your CV</h2>
           <p style={{ color: "rgba(226,232,240,0.40)", fontSize: "14px", marginBottom: "36px" }}>We&apos;ll extract your background so the interview feels personal.</p>
 
@@ -314,7 +340,7 @@ export default function OnboardPage() {
       {/* ── STEP 2 — Company ────────────────────────────────────── */}
       <StepWrapper visible={step === 1 && !transitioning}>
         <div className="max-w-2xl w-full text-center">
-          <p style={{ color: "#E84855", fontSize: "11px", fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: "16px" }}>Step 2 of 4</p>
+          <p style={{ color: "#E84855", fontSize: "11px", fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: "16px" }}>Step 2 of {TOTAL_STEPS}</p>
           <h2 style={{ color: "#E2E8F0", fontSize: "36px", fontWeight: 700, marginBottom: "8px" }}>Which company?</h2>
           <p style={{ color: "rgba(226,232,240,0.40)", fontSize: "14px", marginBottom: "32px" }}>Each company interviews differently. We&apos;ll adapt the questions and scoring.</p>
 
@@ -345,7 +371,7 @@ export default function OnboardPage() {
       {/* ── STEP 3 — Does the role require Japanese? ─────────────── */}
       <StepWrapper visible={step === 2 && !transitioning}>
         <div className="max-w-lg w-full text-center">
-          <p style={{ color: "#E84855", fontSize: "11px", fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: "16px" }}>Step 3 of 4</p>
+          <p style={{ color: "#E84855", fontSize: "11px", fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: "16px" }}>Step 3 of {TOTAL_STEPS}</p>
           <h2 style={{ color: "#E2E8F0", fontSize: "36px", fontWeight: 700, marginBottom: "8px" }}>Does this role require Japanese?</h2>
           <p style={{ color: "rgba(226,232,240,0.40)", fontSize: "14px", marginBottom: "32px" }}>This helps us suggest the right interview language for you.</p>
 
@@ -382,7 +408,7 @@ export default function OnboardPage() {
       {/* ── STEP 4 — Language Mode ───────────────────────────────── */}
       <StepWrapper visible={step === 3 && !transitioning}>
         <div className="max-w-xl w-full text-center">
-          <p style={{ color: "#E84855", fontSize: "11px", fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: "16px" }}>Step 4 of 4</p>
+          <p style={{ color: "#E84855", fontSize: "11px", fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: "16px" }}>Step 4 of {TOTAL_STEPS}</p>
           <h2 style={{ color: "#E2E8F0", fontSize: "36px", fontWeight: 700, marginBottom: "8px" }}>Choose your interview mode</h2>
           <p style={{ color: "rgba(226,232,240,0.40)", fontSize: "14px", marginBottom: "32px" }}>
             {roleRequiresJapanese ? "Showing Japanese interview modes based on your selection." : "Showing English interview modes based on your selection."}
@@ -416,6 +442,70 @@ export default function OnboardPage() {
             ))}
           </div>
 
+          <div className="flex gap-3">
+            <div style={{ flex: 1 }}><SecondaryBtn onClick={() => goToStep(2)}>← Back</SecondaryBtn></div>
+            <div style={{ flex: 2 }}><PrimaryBtn onClick={() => goToStep(4)} disabled={!selectedLanguageMode}>Continue →</PrimaryBtn></div>
+          </div>
+        </div>
+      </StepWrapper>
+
+      {/* ── STEP 5 — Session Duration ────────────────────────────── */}
+      <StepWrapper visible={step === 4 && !transitioning}>
+        <div className="max-w-2xl w-full text-center">
+          <p style={{ color: "#E84855", fontSize: "11px", fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: "16px" }}>Step 5 of {TOTAL_STEPS}</p>
+          <h2 style={{ color: "#E2E8F0", fontSize: "36px", fontWeight: 700, marginBottom: "8px" }}>How long do you want to practice?</h2>
+          <p style={{ color: "rgba(226,232,240,0.40)", fontSize: "14px", marginBottom: "32px" }}>The interview runs continuously until time is up. More time = more questions from different categories.</p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
+            {SESSION_DURATIONS.map((d) => (
+              <button
+                key={d.minutes}
+                onClick={() => setSelectedDuration(d.minutes)}
+                style={{
+                  padding: "20px 16px",
+                  textAlign: "center",
+                  border: `1px solid ${selectedDuration === d.minutes ? "#E84855" : "#1E2A3A"}`,
+                  borderRadius: "8px",
+                  backgroundColor: selectedDuration === d.minutes ? "rgba(232,72,85,0.06)" : "transparent",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  position: "relative",
+                }}
+              >
+                <p style={{
+                  color: selectedDuration === d.minutes ? "#E84855" : "#E2E8F0",
+                  fontWeight: 800,
+                  fontSize: "22px",
+                  marginBottom: "4px",
+                  letterSpacing: "-0.02em",
+                }}>
+                  {d.label}
+                </p>
+                <p style={{
+                  color: selectedDuration === d.minutes ? "#E84855" : "#64748B",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                }}>
+                  {d.sublabel}
+                </p>
+                {selectedDuration === d.minutes && (
+                  <div style={{
+                    position: "absolute", top: "8px", right: "8px",
+                    width: "6px", height: "6px", borderRadius: "50%",
+                    backgroundColor: "#E84855",
+                  }} />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Description for selected duration */}
+          <p style={{ color: "rgba(226,232,240,0.35)", fontSize: "13px", marginBottom: "24px", minHeight: "20px" }}>
+            {SESSION_DURATIONS.find((d) => d.minutes === selectedDuration)?.description || ""}
+          </p>
+
           {/* Summary card */}
           {selectedLanguageMode && cvData && selectedCompany && (
             <div style={{ border: "1px solid #1E2A3A", borderRadius: "8px", padding: "16px 20px", marginBottom: "20px", textAlign: "left" }}>
@@ -424,6 +514,7 @@ export default function OnboardPage() {
                 ["Candidate", cvData.full_name],
                 ["Company", COMPANIES.find((c) => c.id === selectedCompany)?.name || ""],
                 ["Mode", LANGUAGE_MODES.find((m) => m.id === selectedLanguageMode)?.label + " " + LANGUAGE_MODES.find((m) => m.id === selectedLanguageMode)?.sublabel],
+                ["Duration", `${selectedDuration} minutes`],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between" style={{ marginBottom: "6px" }}>
                   <span style={{ color: "rgba(226,232,240,0.40)", fontSize: "13px" }}>{label}</span>
@@ -434,17 +525,17 @@ export default function OnboardPage() {
           )}
 
           <div className="flex gap-3">
-            <div style={{ flex: 1 }}><SecondaryBtn onClick={() => goToStep(2)}>← Back</SecondaryBtn></div>
+            <div style={{ flex: 1 }}><SecondaryBtn onClick={() => goToStep(3)}>← Back</SecondaryBtn></div>
             <div style={{ flex: 2 }}>
               <button
                 onClick={handleStart}
-                disabled={!selectedLanguageMode}
+                disabled={!selectedDuration}
                 style={{
                   width: "100%", padding: "14px",
-                  backgroundColor: selectedLanguageMode ? "#E84855" : "#1E2A3A",
-                  color: selectedLanguageMode ? "#fff" : "#64748B",
+                  backgroundColor: selectedDuration ? "#E84855" : "#1E2A3A",
+                  color: selectedDuration ? "#fff" : "#64748B",
                   border: "none", borderRadius: "6px", fontWeight: 700, fontSize: "15px",
-                  cursor: selectedLanguageMode ? "pointer" : "not-allowed",
+                  cursor: selectedDuration ? "pointer" : "not-allowed",
                   letterSpacing: "0.05em",
                 }}
               >
